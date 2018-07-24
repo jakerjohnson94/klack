@@ -15,6 +15,8 @@ let messages = [];
 // Track last active times for each sender
 let users = {};
 
+mongoose.connect(`mongodb://${DB_USER}:${DB_PASSWORD}@${DB_URI}/${DB_NAME}`);
+
 app.use(express.static('./public'));
 app.use(express.json());
 
@@ -52,8 +54,14 @@ app.get('/messages', (request, response) => {
   // send the latest 40 messages and the full user list, annotated with active flags
   response.send({ messages: messages.slice(-40), users: usersSimple });
 });
-
+const messageSchema = mongoose.Schema({
+  sender: String,
+  message: String,
+  timestamp: Number,
+});
+const Message = mongoose.model('Message', messageSchema);
 app.post('/messages', (request, response) => {
+  console.log('hit it');
   // add a timestamp to each incoming message.
   const timestamp = Date.now();
   request.body.timestamp = timestamp;
@@ -64,12 +72,21 @@ app.post('/messages', (request, response) => {
   // update the posting user's last access timestamp (so we know they are active)
   users[request.body.sender] = timestamp;
 
+  const newMessage = new Message({
+    sender: request.body.sender,
+    message: request.body.message,
+    timestamp: request.body.timestamp,
+  });
+  newMessage.save(function(err) {
+    if (err) return handleError(err);
+    console.log('saved');
+  });
+
   // Send back the successful response.
   response.status(201);
   response.send(request.body);
 });
 
 app.listen(port, () => {
-  mongoose.connect(`mongodb://${DB_USER}:${DB_PASSWORD}@${DB_URI}/${DB_NAME}`);
   console.log(`listening on port ${port}`);
 });
